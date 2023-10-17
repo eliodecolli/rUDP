@@ -119,7 +119,6 @@ public sealed class RUdpClient : IUdpClient
             IsCompleted = false,
             JobId = job.JobId,
             NAcksNumbers = new List<int>(),
-            TotalFragments = 0,
             Destination = job.Destination,
             AcksNumbers = new List<int>(),
             TimeoutTime = DateTime.Now.AddMilliseconds(job.TimeoutInterval + 2)   // add a 2ms as a buffer
