@@ -28,9 +28,21 @@ public sealed class RUdpClient : IUdpClient
         _logger = new ConsoleLogger();
 
         _udpClient = new UdpClient(port);
+
+        // start waiting for incoming notifications
+        Task.Run(InnerRun);
     }
 
-    private void HandleIncomingPacket(byte[] packet, IPEndPoint source)
+    private async Task RetryFragment(Guid id, int fragmentNumber)
+    {
+        _logger.Debug($"Retrying to send fragment {fragmentNumber} for Job {id}.");
+        var job = _jobsStore.GetJobStatus(id);
+        var fragment = _jobFragmentsStore.GetFragment(id, fragmentNumber);
+
+        await _udpClient.SendAsync(fragment.Buffer, fragment.Buffer.Length, job.Destination);
+    }
+
+    private async Task HandleIncomingPacket(byte[] packet, IPEndPoint source)
     {
         _logger.Debug($"Handling packet from {source}");
 
@@ -70,6 +82,8 @@ public sealed class RUdpClient : IUdpClient
                 jobStatus.NAcksNumbers.Add(fragmentNack.FragmentNumber);
 
                 _logger.Warn($"Received NACK for Fragment {fragmentNack.FragmentNumber} Job {fragmentNack.JobId}");
+
+                await RetryFragment(fragmentNack.JobId, fragmentNack.FragmentNumber);
                 break;
         }
 
@@ -90,7 +104,7 @@ public sealed class RUdpClient : IUdpClient
             var packet = _udpClient.Receive(ref source);
             if(source is not null)
             {
-                Task.Run(() => HandleIncomingPacket(packet, source));
+                Task.Run(async () =>  await HandleIncomingPacket(packet, source));
             }
             else
             {
@@ -120,7 +134,7 @@ public sealed class RUdpClient : IUdpClient
         foreach (var fragment in fragments)
         {
             _logger.Info($"Sending fragment {fragment.FragmentNumber} to {newJob.Destination} for Job {newJob.JobId} ({job.FragmentSize} bytes).");
-            await _udpClient.SendAsync(fragment.Buffer, fragment.Buffer.Length);
+            await _udpClient.SendAsync(fragment.Buffer, fragment.Buffer.Length, job.Destination);
         }
     }
 }
