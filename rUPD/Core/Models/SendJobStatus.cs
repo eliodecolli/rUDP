@@ -1,8 +1,14 @@
-﻿namespace rUPD.Core.Models;
+﻿using System.Net;
+
+namespace rUPD.Core.Models;
 
 public class SendJobStatus
 {
     public Guid JobId { get; set; }
+
+    public IPEndPoint Destination {  get; set; }
+
+    public DateTime TimeoutTime { get; set; }
 
     public bool IsCompleted { get; set; }
 

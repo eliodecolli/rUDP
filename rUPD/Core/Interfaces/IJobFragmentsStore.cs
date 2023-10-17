@@ -9,4 +9,6 @@ public interface IJobFragmentsStore
     void ClearFragments(Guid jobId);
 
     UdpFragment GetFragment(Guid jobId, int fragmentNumber);
+
+    List<UdpFragment> GetFragments(Guid jobId);
 }

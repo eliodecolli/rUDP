@@ -22,6 +22,11 @@ public sealed class InMemoryFragmentsStore : IJobFragmentsStore
         return _store[jobId][fragmentNumber - 1];
     }
 
+    public List<UdpFragment> GetFragments(Guid jobId)
+    {
+        return _store[jobId];
+    }
+
     public void RegisterFragments(Guid jobId, List<UdpFragment> fragments)
     {
         _store.Add(jobId, fragments);
