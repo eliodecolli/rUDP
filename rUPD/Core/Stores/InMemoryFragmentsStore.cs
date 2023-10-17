@@ -1,5 +1,5 @@
 ﻿using rUDP.Core.Interfaces;
-using rUPD.Core.Models;
+using rUDP.Core.Models;
 
 namespace rUDP.Core.Stores;
 

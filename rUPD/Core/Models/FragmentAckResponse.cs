@@ -1,6 +1,6 @@
-﻿using rUPD.Core.Enums;
+﻿using rUDP.Core.Enums;
 
-namespace rUPD.Core.Models;
+namespace rUDP.Core.Models;
 
 public sealed class FragmentAckResponse : JobResponse
 {

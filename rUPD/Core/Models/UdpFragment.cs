@@ -1,4 +1,4 @@
-﻿namespace rUPD.Core.Models;
+﻿namespace rUDP.Core.Models;
 
 public sealed class UdpFragment
 {

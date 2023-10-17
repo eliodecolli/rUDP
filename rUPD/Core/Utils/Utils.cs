@@ -1,5 +1,5 @@
 ﻿using rUDP.Core.Enums;
-using rUPD.Core.Models;
+using rUDP.Core.Models;
 using System.Runtime.CompilerServices;
 
 [assembly: InternalsVisibleTo("rUDP.Tests")]

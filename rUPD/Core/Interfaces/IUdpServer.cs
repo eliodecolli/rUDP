@@ -1,4 +1,4 @@
-﻿namespace rUPD.Core.Interfaces;
+﻿namespace rUDP.Core.Interfaces;
 
 public interface IUdpServer
 {

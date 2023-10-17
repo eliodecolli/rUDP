@@ -1,6 +1,6 @@
 ﻿using System.Net;
 
-namespace rUPD.Core.Models;
+namespace rUDP.Core.Models;
 
 public sealed class SendJobConfiguration
 {

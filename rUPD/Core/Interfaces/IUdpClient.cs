@@ -1,6 +1,6 @@
-﻿using rUPD.Core.Models;
+﻿using rUDP.Core.Models;
 
-namespace rUPD.Core.Interfaces;
+namespace rUDP.Core.Interfaces;
 
 public interface IUdpClient
 {
