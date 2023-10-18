@@ -8,5 +8,7 @@ public interface IJobFragments
 
     IEnumerable<int> ReportMissingFragments();
 
+    int GetCurrentNumberOfFragments();
+
     byte[] GenerateLatestResult();
 }
