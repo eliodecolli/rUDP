@@ -1,20 +1,22 @@
 ﻿using rUDP.Core.Interfaces;
+using rUDP.Core.Models.Jobs;
+using rUDP.Core.Enums;
 using rUDP.Core.Models;
 
 namespace rUDP.Core.Stores;
 
 public sealed class InMemorySendJobStore : ISendJobStore
 {
-    private readonly Dictionary<Guid, SendJobStatus> _runningJobs;
+    private readonly Dictionary<Guid, SendJob> _runningJobs;
     private readonly IJobFragmentsStore _jobFragmentsStore;
 
     public InMemorySendJobStore(IJobFragmentsStore fragmentsStore)
     {
-        _runningJobs = new Dictionary<Guid, SendJobStatus>();
+        _runningJobs = new Dictionary<Guid, SendJob>();
         _jobFragmentsStore = fragmentsStore;
     }
 
-    public void CreateNewJob(SendJobStatus job, List<UdpFragment> fragments)
+    public void CreateNewJob(SendJob job, List<UdpFragment> fragments)
     {
         _runningJobs.Add(job.JobId, job);
         _jobFragmentsStore.RegisterFragments(job.JobId, fragments);
@@ -26,16 +28,17 @@ public sealed class InMemorySendJobStore : ISendJobStore
         _jobFragmentsStore.ClearFragments(id);
     }
 
-    public SendJobStatus GetJobStatus(Guid id)
+    public SendJob GetJobStatus(Guid id)
     {
         return _runningJobs[id];
     }
 
-    public void UpdateJob(Guid id, SendJobStatus job)
+    public void UpdateJob(Guid id, SendJob job)
     {
         _runningJobs[id] = job;
 
-        if(job.IsCompleted)
+        if(job.JobStatus == JobStatus.Completed ||
+           job.JobStatus == JobStatus.Timedout)
         {
             _jobFragmentsStore.ClearFragments(id);
         }

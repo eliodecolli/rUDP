@@ -2,7 +2,7 @@
 
 public sealed class UdpFragment
 {
-    public UdpFragment(Guid jobId, int fragmentNumber, int totalFragments, byte[] data, byte[]? signature)
+    public UdpFragment(Guid jobId, int fragmentNumber, int totalFragments, byte[] data, byte[]? signature = null)
     {
         JobId = jobId;
         FragmentNumber = fragmentNumber;

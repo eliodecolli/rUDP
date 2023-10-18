@@ -1,14 +1,15 @@
 ﻿using rUDP.Core.Models;
+using rUDP.Core.Models.Jobs;
 
 namespace rUDP.Core.Interfaces;
 
 public interface ISendJobStore
 {
-    void CreateNewJob(SendJobStatus job, List<UdpFragment> fragments);
+    void CreateNewJob(SendJob job, List<UdpFragment> fragments);
 
     void DeleteJob(Guid id);
 
-    void UpdateJob(Guid id, SendJobStatus job);
+    void UpdateJob(Guid id, SendJob job);
 
-    SendJobStatus GetJobStatus(Guid id);
+    SendJob GetJobStatus(Guid id);
 }

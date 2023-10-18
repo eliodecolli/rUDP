@@ -7,6 +7,18 @@ namespace rUDP.Core.Utils;
 
 internal static class Utils
 {
+    public static UdpPacketWrapper ParsePacket(byte[] data)
+    {
+        using var memoryStream = new MemoryStream(data);
+        using var reader = new BinaryReader(memoryStream);
+
+        var header = (UdpHeader)reader.ReadByte();
+        var dataLen = reader.ReadInt32();
+        var packetData = reader.ReadBytes(dataLen);
+
+        return new UdpPacketWrapper(header, packetData);
+    }
+
     public static JobResponse ParseJobResponse(byte[] data)
     {
         using var memoryStream = new MemoryStream(data);
@@ -26,6 +38,38 @@ internal static class Utils
             default:
                 throw new Exception("Invalid job response received.");
         }
+    }
+
+    public static UdpFragment ParseUdpFragment(byte[] data)
+    {
+        using var memoryStream = new MemoryStream(data);
+        using var reader = new BinaryReader(memoryStream);
+
+        var jobId = Guid.Parse(reader.ReadString());
+        var totalFragments = reader.ReadInt32();
+        var fragmentNumber = reader.ReadInt32();
+        var dataLen = reader.ReadInt32();
+        var fragmentData = reader.ReadBytes(dataLen);
+        
+        return new UdpFragment(jobId, fragmentNumber, totalFragments, fragmentData);
+    }
+
+    public static byte[] SerializeJobResponse(JobResponse response)
+    {
+        using var memoryStream = new MemoryStream();
+        using var writer = new BinaryWriter(memoryStream);
+
+        writer.Write((byte)response.ResponseType);
+        writer.Write(response.JobId.ToString());
+
+        if (response is FragmentAckResponse)
+        {
+            writer.Write(((FragmentAckResponse)response).FragmentNumber);
+        }
+
+        writer.Flush();
+
+        return memoryStream.ToArray();
     }
 
     public static async Task<List<UdpFragment>> FragmentData(byte[] data, int fragmentLength, Guid jobId)

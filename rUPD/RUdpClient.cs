@@ -1,5 +1,6 @@
 ﻿using rUDP.Core.Interfaces;
 using rUDP.Core.Models;
+using rUDP.Core.Models.Jobs;
 using rUDP.Core.Utils;
 using System.Net.Sockets;
 using System.Net;
@@ -9,7 +10,7 @@ using rUDP.Core;
 
 namespace rUDP;
 
-public sealed class RUdpClient : IUdpClient
+public sealed class RUdpClient : IUdpClient, IUdpServer
 {
     private readonly UdpClient _udpClient;
 
@@ -27,9 +28,6 @@ public sealed class RUdpClient : IUdpClient
         _logger = new ConsoleLogger();
 
         _udpClient = new UdpClient(port);
-
-        // start waiting for incoming notifications
-        Task.Run(InnerRun);
     }
 
     private async Task RetryFragment(Guid id, int fragmentNumber)
@@ -41,7 +39,7 @@ public sealed class RUdpClient : IUdpClient
         await _udpClient.SendAsync(fragment.Buffer, fragment.Buffer.Length, job.Destination);
     }
 
-    private async Task HandleIncomingPacket(byte[] packet, IPEndPoint source)
+    private async Task HandleIncomingJobResponse(byte[] packet, IPEndPoint source)
     {
         _logger.Debug($"Handling packet from {source}");
 
@@ -60,7 +58,7 @@ public sealed class RUdpClient : IUdpClient
         switch(fragmentResult.ResponseType)
         {
             case JobResponseType.JobEnd:
-                jobStatus.IsCompleted = true;
+                jobStatus.JobStatus = JobStatus.Completed;
 
                 _logger.Debug($"Finished Job {fragmentResult.JobId}");
                 break;
@@ -89,10 +87,27 @@ public sealed class RUdpClient : IUdpClient
         _jobsStore.UpdateJob(jobStatus.JobId, jobStatus);
     }
 
+    private async Task HandleIncomingFragment(byte[] packet, IPEndPoint source)
+    {
+        _logger.Debug($"Handling UDP Fragment from {source} ({packet.Length} bytes)");
+
+        var fragment = Utils.ParseUdpFragment(packet);
+
+    }
+
     private void HandleJobTimeout(object? state)
     {
         var jobId = (Guid?)state;
+        if(!jobId.HasValue)
+        {
+            _logger.Error("Error while calling job timeout for NULL Job Id.");
+            return;
+        }
+
         _logger.Debug($"Job {jobId} has timed out.");
+
+        var job = _jobsStore.GetJobStatus(jobId.Value);
+        job.JobStatus = JobStatus.Timedout;
     }
 
     private void InnerRun()
@@ -103,7 +118,20 @@ public sealed class RUdpClient : IUdpClient
             var packet = _udpClient.Receive(ref source);
             if(source is not null)
             {
-                Task.Run(async () =>  await HandleIncomingPacket(packet, source));
+                _logger.Info($"UDP Client: Received {packet.Length} bytes from {source}");
+                var udpPacket = Utils.ParsePacket(packet);
+                switch(udpPacket.Header)
+                {
+                    case UdpHeader.JobResponse:
+                        Task.Run(async () => await HandleIncomingJobResponse(packet, source));
+                        break;
+                    case UdpHeader.UdpFragment:
+                        Task.Run(async () => await HandleIncomingFragment(packet, source));
+                        break;
+                    default:
+                        _logger.Error("Invalid packet header.");
+                        break;
+                }
             }
             else
             {
@@ -114,10 +142,10 @@ public sealed class RUdpClient : IUdpClient
 
     public async Task SendData(byte[] data, SendJobConfiguration job)
     {
-        var newJob = new SendJobStatus()
+        var newJob = new SendJob()
         {
-            IsCompleted = false,
             JobId = job.JobId,
+            JobStatus = JobStatus.Running,
             NAcksNumbers = new List<int>(),
             Destination = job.Destination,
             AcksNumbers = new List<int>(),
@@ -131,8 +159,18 @@ public sealed class RUdpClient : IUdpClient
         var fragments = _jobFragmentsStore.GetFragments(job.JobId);
         foreach (var fragment in fragments)
         {
-            _logger.Info($"Sending fragment {fragment.FragmentNumber} to {newJob.Destination} for Job {newJob.JobId} ({job.FragmentSize} bytes).");
-            await _udpClient.SendAsync(fragment.Buffer, fragment.Buffer.Length, job.Destination);
+            var status = _jobsStore.GetJobStatus(fragment.JobId);
+            if(status.JobStatus == JobStatus.Running)
+            {
+                _logger.Info($"Sending fragment {fragment.FragmentNumber} to {newJob.Destination} for Job {newJob.JobId} ({job.FragmentSize} bytes).");
+                await _udpClient.SendAsync(fragment.Buffer, fragment.Buffer.Length, job.Destination);
+            }
         }
+    }
+
+    public void Start()
+    {
+        // start waiting for incoming notifications
+        Task.Run(InnerRun);
     }
 }

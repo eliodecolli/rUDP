@@ -2,7 +2,7 @@
 
 public enum JobResponseType : byte
 {
-    FragmentAck = 0,
-    FragmentNAck = 1, 
-    JobEnd = 2
+    FragmentAck = 0x00,
+    FragmentNAck = 0x01, 
+    JobEnd = 0x02
 }
