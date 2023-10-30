@@ -16,14 +16,14 @@ public sealed class RUdpClient : IUdpClient, IUdpServer
 
     private readonly ILogger _logger;
 
-    private readonly ISendJobStore _jobsStore;
+    private readonly ISendJobStore _sendJobStore;
 
     private readonly IJobFragmentsStore _jobFragmentsStore;
 
     public RUdpClient(int port)
     {
         _jobFragmentsStore = new InMemoryFragmentsStore();
-        _jobsStore = new InMemorySendJobStore(_jobFragmentsStore);
+        _sendJobStore = new InMemorySendJobStore(_jobFragmentsStore);
 
         _logger = new ConsoleLogger();
 
@@ -33,7 +33,7 @@ public sealed class RUdpClient : IUdpClient, IUdpServer
     private async Task RetryFragment(Guid id, int fragmentNumber)
     {
         _logger.Debug($"Retrying to send fragment {fragmentNumber} for Job {id}.");
-        var job = _jobsStore.GetJobStatus(id);
+        var job = _sendJobStore.GetJobStatus(id);
         var fragment = _jobFragmentsStore.GetFragment(id, fragmentNumber);
 
         await _udpClient.SendAsync(fragment.Buffer, fragment.Buffer.Length, job.Destination);
@@ -47,7 +47,7 @@ public sealed class RUdpClient : IUdpClient, IUdpServer
 
         _logger.Info($"Received {Enum.GetName(fragmentResult.ResponseType)} for Job Id {fragmentResult.JobId}");
 
-        var jobStatus = _jobsStore.GetJobStatus(fragmentResult.JobId);
+        var jobStatus = _sendJobStore.GetJobStatus(fragmentResult.JobId);
 
         if(jobStatus.Destination != source)
         {
@@ -84,7 +84,7 @@ public sealed class RUdpClient : IUdpClient, IUdpServer
                 break;
         }
 
-        _jobsStore.UpdateJob(jobStatus.JobId, jobStatus);
+        _sendJobStore.UpdateJob(jobStatus.JobId, jobStatus);
     }
 
     private async Task HandleIncomingFragment(byte[] packet, IPEndPoint source)
@@ -93,6 +93,17 @@ public sealed class RUdpClient : IUdpClient, IUdpServer
 
         var fragment = Utils.ParseUdpFragment(packet);
 
+        await AcknowledgeFragment(fragment, source);
+    }
+
+    private async Task AcknowledgeFragment(UdpFragment fragment, IPEndPoint source)
+    {
+        // register the fragment
+
+        var ack = new FragmentAckResponse(JobResponseType.FragmentAck, fragment.JobId, fragment.FragmentNumber);
+        var buffer = Utils.SerializeJobResponse(ack);
+
+        await _udpClient.SendAsync(buffer, buffer.Length, source);
     }
 
     private void HandleJobTimeout(object? state)
@@ -106,7 +117,7 @@ public sealed class RUdpClient : IUdpClient, IUdpServer
 
         _logger.Debug($"Job {jobId} has timed out.");
 
-        var job = _jobsStore.GetJobStatus(jobId.Value);
+        var job = _sendJobStore.GetJobStatus(jobId.Value);
         job.JobStatus = JobStatus.Timedout;
     }
 
@@ -140,6 +151,21 @@ public sealed class RUdpClient : IUdpClient, IUdpServer
         }
     }
 
+    private async Task BeginSendingData(Guid jobId)
+    {
+        var job = _sendJobStore.GetJobStatus(jobId);
+        var fragments = _jobFragmentsStore.GetReceiveFragments(jobId);
+        foreach (var fragment in new UdpFragment[] { } )
+        {
+            var status = _sendJobStore.GetJobStatus(fragment.JobId);
+            if (status.JobStatus == JobStatus.Running)
+            {
+                _logger.Info($"Sending fragment {fragment.FragmentNumber} to {job.Destination} for Job {job.JobId} ({fragment.Buffer.Length} bytes).");
+                await _udpClient.SendAsync(fragment.Buffer, fragment.Buffer.Length, job.Destination);
+            }
+        }
+    }
+
     public async Task SendData(byte[] data, SendJobConfiguration job)
     {
         var newJob = new SendJob()
@@ -152,20 +178,11 @@ public sealed class RUdpClient : IUdpClient, IUdpServer
             TimeoutTime = DateTime.Now.AddMilliseconds(job.TimeoutInterval + 2)   // add a 2ms as a buffer
         };
 
-        _jobsStore.CreateNewJob(newJob, await Utils.FragmentData(data, job.FragmentSize, job.JobId));
+        _sendJobStore.CreateNewJob(newJob, await Utils.FragmentData(data, job.FragmentSize, job.JobId));
 
         new Timer(HandleJobTimeout, job.JobId, DateTime.Now.Subtract(newJob.TimeoutTime).Milliseconds, Timeout.Infinite);
 
-        var fragments = _jobFragmentsStore.GetFragments(job.JobId);
-        foreach (var fragment in fragments)
-        {
-            var status = _jobsStore.GetJobStatus(fragment.JobId);
-            if(status.JobStatus == JobStatus.Running)
-            {
-                _logger.Info($"Sending fragment {fragment.FragmentNumber} to {newJob.Destination} for Job {newJob.JobId} ({job.FragmentSize} bytes).");
-                await _udpClient.SendAsync(fragment.Buffer, fragment.Buffer.Length, job.Destination);
-            }
-        }
+        await BeginSendingData(newJob.JobId);
     }
 
     public void Start()

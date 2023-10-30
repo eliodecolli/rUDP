@@ -1,14 +1,15 @@
 ﻿using rUDP.Core.Models;
+using rUDP.Core.Types;
 
 namespace rUDP.Core.Interfaces;
 
 public interface IJobFragments
 {
-    bool RegisterFragment(UdpFragment fragmemt);
+    bool RegisterFragment(UdpFragment fragment);
 
     IEnumerable<int> ReportMissingFragments();
 
     int GetCurrentNumberOfFragments();
 
-    byte[] GenerateLatestResult();
+    UdpBuffer GenerateLatestResult(bool returnIfIncomplete = true);
 }

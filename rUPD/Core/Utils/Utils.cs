@@ -72,6 +72,22 @@ internal static class Utils
         return memoryStream.ToArray();
     }
 
+    public static byte[] StripHeaders(UdpFragment fragment)
+    {
+        using var memoryStream = new MemoryStream(fragment.Buffer);
+        using var reader = new BinaryReader(memoryStream);
+
+        // skip the headers
+        reader.ReadString();  // job id
+        reader.ReadInt32();  // total fragments
+        reader.ReadInt32();  // fragment number
+
+        var dataLen = reader.ReadInt32();
+        var data = reader.ReadBytes(dataLen);
+
+        return data;
+    }
+
     public static async Task<List<UdpFragment>> FragmentData(byte[] data, int fragmentLength, Guid jobId)
     {
         return await Task.Run(() =>

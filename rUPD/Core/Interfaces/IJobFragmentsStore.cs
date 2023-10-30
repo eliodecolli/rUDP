@@ -10,5 +10,5 @@ public interface IJobFragmentsStore
 
     UdpFragment GetFragment(Guid jobId, int fragmentNumber);
 
-    List<UdpFragment> GetFragments(Guid jobId);
+    IJobFragments GetReceiveFragments(Guid jobId);
 }

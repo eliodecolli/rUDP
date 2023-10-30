@@ -22,9 +22,9 @@ public sealed class InMemoryFragmentsStore : IJobFragmentsStore
         return _store[jobId][fragmentNumber - 1];
     }
 
-    public List<UdpFragment> GetFragments(Guid jobId)
+    public IJobFragments GetReceiveFragments(Guid jobId)
     {
-        return _store[jobId];
+        return new InMemoryJobFragments(1, 0, 0);
     }
 
     public void RegisterFragments(Guid jobId, List<UdpFragment> fragments)
