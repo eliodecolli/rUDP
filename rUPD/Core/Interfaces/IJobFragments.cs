@@ -7,6 +7,8 @@ public interface IJobFragments
 {
     bool RegisterFragment(UdpFragment fragment);
 
+    bool IsCompleted();
+
     IEnumerable<int> ReportMissingFragments();
 
     int GetCurrentNumberOfFragments();

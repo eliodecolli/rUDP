@@ -5,11 +5,11 @@ namespace rUDP.Core.Interfaces;
 
 public interface ISendJobStore
 {
-    void CreateNewJob(SendJob job, List<UdpFragment> fragments);
+    void CreateNewJob(OutboundJob job, List<UdpFragment> fragments);
 
     void DeleteJob(Guid id);
 
-    void UpdateJob(Guid id, SendJob job);
+    void UpdateJob(Guid id, OutboundJob job);
 
-    SendJob GetJobStatus(Guid id);
+    OutboundJob GetJobStatus(Guid id);
 }

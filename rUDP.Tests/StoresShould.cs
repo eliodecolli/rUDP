@@ -1,6 +1,5 @@
 ﻿using rUDP.Core.Models;
 using rUDP.Core.Stores;
-using rUDP.Core.Utils;
 
 namespace rUDP.Tests
 {
@@ -13,36 +12,20 @@ namespace rUDP.Tests
             const int fragmentSize = 17;
 
             var data = new byte[packetLength];
-            var totalFragments = (int)Math.Ceiling((double)packetLength / (double)fragmentSize);  // some very odd combinations
-
             new Random().NextBytes(data);
 
-            var jobFragments = new InMemoryJobFragments(totalFragments, packetLength, fragmentSize);
+            var fragments = await Core.Utils.FragmentData(data, fragmentSize, Guid.Empty);
 
-            for(int i = 0; i < totalFragments; i++)
+            var jobFragments = new InMemoryJobFragments(fragments.Count, packetLength, fragmentSize);
+
+            for(int i = 0; i < fragments.Count; i++)
             {
-                var temp = new byte[fragmentSize];
-                var sourceIndex = i * fragmentSize;
-                if(data.Length - 1 < sourceIndex + fragmentSize)
-                {
-                    var diff = (sourceIndex + fragmentSize) - data.Length;
-                    var newLen = fragmentSize - diff;
-                    var newIndex = data.Length - newLen;
+                var fragment = fragments[i];
 
-                    Array.Copy(data, newIndex, temp, 0, newLen);
-                    Array.Resize(ref temp, newLen);
-                }
-                else
-                {
-                    Array.Copy(data, sourceIndex, temp, 0, fragmentSize);
-                }
-
-                var udpFragment = new UdpFragment(Guid.Empty, i + 1, packetLength, temp);
-
-                var result = jobFragments.RegisterFragment(udpFragment);
+                var result = jobFragments.RegisterFragment(fragment);
                 Assert.True(result);
 
-                if(i % 5 == 0)
+                if (i % 5 == 0)
                 {
                     var currentBuffer = jobFragments.GenerateLatestResult().GetBytes();
                     var areCompletelyZeros = Array.FindAll(currentBuffer, b => b == 0x00).Length == packetLength;

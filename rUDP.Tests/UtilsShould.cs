@@ -1,4 +1,4 @@
-using rUDP.Core.Utils;
+using rUDP.Core;
 
 namespace rUDP.Tests
 {

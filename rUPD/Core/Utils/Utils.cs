@@ -1,11 +1,10 @@
 ﻿using rUDP.Core.Enums;
 using rUDP.Core.Models;
-using System.Runtime.CompilerServices;
+using System.Net;
 
-[assembly: InternalsVisibleTo("rUDP.Tests")]
-namespace rUDP.Core.Utils;
+namespace rUDP.Core;
 
-internal static class Utils
+public static class Utils
 {
     public static UdpPacketWrapper ParsePacket(byte[] data)
     {
@@ -13,10 +12,41 @@ internal static class Utils
         using var reader = new BinaryReader(memoryStream);
 
         var header = (UdpHeader)reader.ReadByte();
+        if (header == UdpHeader.CloseChannel)  // closing a channel doesn't really need additional data
+        {
+            return new UdpPacketWrapper(header, new byte[] { });
+        }
+
         var dataLen = reader.ReadInt32();
         var packetData = reader.ReadBytes(dataLen);
 
         return new UdpPacketWrapper(header, packetData);
+    }
+
+    public static byte[] SerializeUdpPacket(UdpHeader header, byte[] data)
+    {
+        using var memoryStream = new MemoryStream();
+        using var writer = new BinaryWriter(memoryStream);
+
+        writer.Write((byte)header);
+        writer.Write(data.Length);
+        writer.Write(data);
+        writer.Flush();
+
+        return memoryStream.ToArray();
+    }
+
+    public static byte[] SerializeFragmentPacket(UdpFragment fragment)
+    {
+        using var memoryStream = new MemoryStream();
+        using var writer = new BinaryWriter(memoryStream);
+
+        writer.Write((byte)UdpHeader.UdpFragment);
+        writer.Write(fragment.Buffer.Length);
+        writer.Write(fragment.Buffer);
+        writer.Flush();
+
+        return memoryStream.ToArray();
     }
 
     public static JobResponse ParseJobResponse(byte[] data)
@@ -47,11 +77,12 @@ internal static class Utils
 
         var jobId = Guid.Parse(reader.ReadString());
         var totalFragments = reader.ReadInt32();
+        var totalLength = reader.ReadInt32();
         var fragmentNumber = reader.ReadInt32();
         var dataLen = reader.ReadInt32();
         var fragmentData = reader.ReadBytes(dataLen);
         
-        return new UdpFragment(jobId, fragmentNumber, totalFragments, fragmentData);
+        return new UdpFragment(jobId, fragmentNumber, totalFragments, totalLength, fragmentData);
     }
 
     public static byte[] SerializeJobResponse(JobResponse response)
@@ -80,12 +111,24 @@ internal static class Utils
         // skip the headers
         reader.ReadString();  // job id
         reader.ReadInt32();  // total fragments
+        reader.ReadInt32();  // total length
         reader.ReadInt32();  // fragment number
 
         var dataLen = reader.ReadInt32();
         var data = reader.ReadBytes(dataLen);
 
         return data;
+    }
+
+    public static int GetPort(HashSet<int> currentlyRunningPorts)
+    {
+        var port = new Random().Next(4000, 5000);
+        if(currentlyRunningPorts.Contains(port))
+        {
+            return GetPort(currentlyRunningPorts);
+        }
+
+        return port;
     }
 
     public static async Task<List<UdpFragment>> FragmentData(byte[] data, int fragmentLength, Guid jobId)
@@ -122,7 +165,7 @@ internal static class Utils
 
             for (int i = 0; i < totalFragments; i++)
             {
-                retval.Add(new UdpFragment(jobId, i + 1, totalFragments, batches[i], null));
+                retval.Add(new UdpFragment(jobId, i + 1, totalFragments, data.Length, batches[i], null));
             }
             return retval;
         });

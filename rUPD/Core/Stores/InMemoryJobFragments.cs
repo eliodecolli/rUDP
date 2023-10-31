@@ -22,7 +22,7 @@ public sealed class InMemoryJobFragments : IJobFragments
 
     private readonly UdpBuffer _cachedBuffer;
 
-    public InMemoryJobFragments(int totalFragments, int packetLength, int fragmentSize)
+    public InMemoryJobFragments(int totalFragments, int packetLength, short fragmentSize)
     {
         _fragments = new Dictionary<int, UdpFragment>();
         _totalFragments = totalFragments;
@@ -58,7 +58,7 @@ public sealed class InMemoryJobFragments : IJobFragments
             {
                 if (!_bufferedPackets.Contains(fragment.FragmentNumber))
                 {
-                    WriteToPosition(Utils.Utils.StripHeaders(fragment), fragment.FragmentNumber, _cachedBuffer.Buffer);
+                    WriteToPosition(Utils.StripHeaders(fragment), fragment.FragmentNumber, _cachedBuffer.Buffer);
                     _bufferedPackets.Add(fragment.FragmentNumber);
                 }
             }
@@ -105,4 +105,6 @@ public sealed class InMemoryJobFragments : IJobFragments
 
         return missing;
     }
+
+    public bool IsCompleted() => _cachedBuffer.IsComplete;
 }

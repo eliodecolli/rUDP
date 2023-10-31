@@ -4,5 +4,6 @@ public enum JobStatus
 {
     Running,
     Completed,
+    Initialized,
     Timedout
 }
